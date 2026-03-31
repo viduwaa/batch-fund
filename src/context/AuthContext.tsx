@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { AuthState, AuthUser, Profile } from '@/lib/types';
 
@@ -7,60 +7,25 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const currentUserId = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    async function getSession() {
-      setIsLoading(true);
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error || !session) {
-          if (mounted) {
-            setUser(null);
-            setIsLoading(false);
-          }
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (mounted) {
-          if (profile) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email ?? '',
-              profile: profile as Profile,
-            });
-          } else {
-            setUser(null);
-          }
-        }
-      } catch (err) {
-        console.error("Auth initialization error:", err);
-        if (mounted) setUser(null);
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
-    }
-
-    getSession();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // Avoid firing redundant stuff when we already have the session mapped
       if (!session) {
-        setUser(null);
-        setIsLoading(false);
+        if (mounted) {
+          setUser(null);
+          currentUserId.current = null;
+          setIsLoading(false);
+        }
         return;
       }
 
       // If user isn't fully loaded or ID mismatched, fetch profile
-      if (!user || user.id !== session.user.id) {
-        setIsLoading(true);
+      if (!currentUserId.current || currentUserId.current !== session.user.id) {
+        if (mounted) setIsLoading(true);
         try {
           const { data: profile } = await supabase
             .from('profiles')
@@ -68,15 +33,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq('id', session.user.id)
             .single();
           
-          if (profile && mounted) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email ?? '',
-              profile: profile as Profile,
-            });
+          if (mounted) {
+            if (profile) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email ?? '',
+                profile: profile as Profile,
+              });
+            } else {
+              setUser(null);
+            }
+            // Always set currentUserId.current or we'll trigger another fetch on the next event
+            currentUserId.current = session.user.id;
           }
         } catch (err) {
           console.error("Auth state change error:", err);
+          if (mounted) {
+            setUser(null);
+            currentUserId.current = session.user.id; // Prevent looping on error
+          }
         } finally {
           if (mounted) setIsLoading(false);
         }

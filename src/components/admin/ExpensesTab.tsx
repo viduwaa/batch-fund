@@ -35,7 +35,7 @@ export default function ExpensesTab() {
     queryFn: fetchExpenses
   });
 
-  const { data: collections, isLoading: collectionsLoading } = useQuery({
+  const { data: collections } = useQuery({
     queryKey: ['collections'],
     queryFn: fetchCollections
   });

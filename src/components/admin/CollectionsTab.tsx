@@ -6,11 +6,14 @@ import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/shared/StatusBadge';
 import CashCollectionUI from '@/components/admin/CashCollectionUI';
 import CreateCollectionDialog from '@/components/admin/CreateCollectionDialog';
-import { Plus, ChevronRight, ArrowLeft } from 'lucide-react';
+import EditCollectionDialog from '@/components/admin/EditCollectionDialog';
+import { Plus, ChevronRight, ArrowLeft, MoreHorizontal, Edit2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function CollectionsTab() {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [collectionToEdit, setCollectionToEdit] = useState<any | null>(null);
 
   const { data: collections, isLoading } = useQuery({
     queryKey: ['collectionsStats'],
@@ -87,7 +90,7 @@ export default function CollectionsTab() {
                         </CardTitle>
                         <StatusBadge status={cStats.status} />
                       </div>
-                      <p className="text-sm text-slate-500 truncate">{cStats.description}</p>
+                      <p className="text-sm text-slate-500 truncate pr-8">{cStats.description}</p>
 
                       <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-slate-500">
                         <span>
@@ -110,7 +113,20 @@ export default function CollectionsTab() {
                       </div>
                     </div>
 
-                    <ChevronRight className="h-5 w-5 text-slate-300 mt-1 shrink-0" />
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md h-8 w-8 -m-2 z-10 hover:bg-slate-100" onClick={(e) => e.stopPropagation()}>
+                          <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40 z-50">
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setCollectionToEdit(cStats); }}>
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Edit Collection
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <ChevronRight className="h-5 w-5 text-slate-300 mt-2" />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -124,6 +140,13 @@ export default function CollectionsTab() {
 
       {/* Create Dialog */}
       <CreateCollectionDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
+      
+      {/* Edit Dialog */}
+      <EditCollectionDialog 
+        open={!!collectionToEdit} 
+        onOpenChange={(open) => !open && setCollectionToEdit(null)} 
+        collection={collectionToEdit} 
+      />
     </div>
   );
 }

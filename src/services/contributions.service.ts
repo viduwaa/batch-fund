@@ -30,11 +30,12 @@ export async function fetchUserContributions(userId: string) {
   return data || [];
 }
 
-export async function recordPayment(contributionId: string, paidAmount: number, confirmedBy: string) {
+export async function recordPayment(contributionId: string, paidAmount: number, status: string, confirmedBy: string) {
   const { data, error } = await supabase
     .from('contributions')
     .update({
       paid_amount: paidAmount,
+      status: status,
       confirmed_by: confirmedBy,
       confirmed_at: new Date().toISOString()
     })

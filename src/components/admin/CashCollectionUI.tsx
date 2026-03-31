@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { Collection, ContributionWithUser } from '@/lib/types';
+import type { ContributionWithUser } from '@/lib/types';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchCollectionContributions, recordPayment } from '@/services/contributions.service';
 import { useAuth } from '@/context/AuthContext';
@@ -56,8 +56,8 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
   const contributions = rawContributions || [];
 
   const paymentMutation = useMutation({
-    mutationFn: (variables: { id: string, amount: number }) => 
-      recordPayment(variables.id, variables.amount, user?.id ?? ''),
+    mutationFn: (variables: { id: string, amount: number, status: string }) => 
+      recordPayment(variables.id, variables.amount, variables.status, user?.id ?? ''),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contributions', collection.id] });
       queryClient.invalidateQueries({ queryKey: ['collectionsStats'] });
@@ -71,7 +71,7 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
   }, [searchQuery, deptFilter, statusFilter]);
 
   // Dialog State
-  const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; maxAmount: number } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; maxAmount: number, currentPaid: number } | null>(null);
   const [payInput, setPayInput] = useState<string>('');
 
   const filteredContributions = useMemo(() => {
@@ -98,21 +98,28 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
   const percentage = stats.total_users > 0 ? Math.round((stats.paid_count / stats.total_users) * 100) : 0;
 
   const handleOpenDialog = (contribution: ContributionWithUser) => {
+    const currentPaid = contribution.paid_amount || 0;
     setSelectedItem({
       id: contribution.id,
       name: contribution.user?.full_name || 'Unknown',
       maxAmount: contribution.amount,
+      currentPaid: currentPaid,
     });
     // Default to unpaid balance
-    const currentPaid = contribution.paid_amount || 0;
     setPayInput((contribution.amount - currentPaid).toString());
   };
 
   const handleConfirmPayment = () => {
     if (!selectedItem) return;
     const addAmount = Number(payInput) || 0;
+    const newPaidAmount = selectedItem.currentPaid + addAmount;
     
-    paymentMutation.mutate({ id: selectedItem.id, amount: selectedItem.maxAmount });
+    // Determine status
+    let newStatus = 'pending';
+    if (newPaidAmount >= selectedItem.maxAmount) newStatus = 'paid';
+    else if (newPaidAmount > 0) newStatus = 'partial';
+    
+    paymentMutation.mutate({ id: selectedItem.id, amount: newPaidAmount, status: newStatus });
     
     setSelectedItem(null);
   };

@@ -13,7 +13,7 @@ export default function ReportsTab() {
     queryFn: fetchCollectionsWithStats
   });
 
-  const { data: expenses, isLoading: expLoading } = useQuery({
+  const { data: expenses } = useQuery({
     queryKey: ['expenses'],
     queryFn: fetchExpenses
   });

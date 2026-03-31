@@ -6,7 +6,6 @@ import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import CollectionsPage from '@/pages/CollectionsPage';
 import ExpensesPage from '@/pages/ExpensesPage';
-import ContributionsPage from '@/pages/ContributionsPage';
 import LedgerPage from '@/pages/LedgerPage';
 import ReportsPage from '@/pages/ReportsPage';
 import NotFoundPage from '@/pages/NotFoundPage';
@@ -27,7 +26,6 @@ export default function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/collections" element={<CollectionsPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
-            <Route path="/contributions" element={<ContributionsPage />} />
             <Route path="/ledger" element={<LedgerPage />} />
             <Route path="/reports" element={<ReportsPage />} />
           </Route>

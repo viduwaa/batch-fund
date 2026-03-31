@@ -43,7 +43,7 @@ export default function MasterLedger() {
     queryFn: fetchLedgerEntries
   });
 
-  const { data: mockCollections, isLoading: collectionsLoading } = useQuery({
+  const { data: mockCollections } = useQuery({
     queryKey: ['collections'],
     queryFn: fetchCollections
   });

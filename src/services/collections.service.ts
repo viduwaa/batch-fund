@@ -46,3 +46,24 @@ export async function updateCollectionStatus(id: string, status: 'active' | 'clo
   if (error) throw error;
   return data;
 }
+
+export async function updateCollectionDetails(id: string, payload: Partial<CollectionInsert>): Promise<CollectionRow> {
+  const { data, error } = await supabase
+    .from('collections')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCollection(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('collections')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}

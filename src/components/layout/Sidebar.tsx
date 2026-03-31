@@ -8,10 +8,8 @@ import {
   FolderKanban,
   Shield,
   User,
-  ArrowLeftRight,
   PieChart,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
 const adminLinks = [
@@ -24,12 +22,11 @@ const adminLinks = [
 
 const userLinks = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/contributions', label: 'My Contributions', icon: HandCoins },
   { to: '/ledger', label: 'Master Ledger', icon: BookOpen },
 ];
 
 export default function Sidebar() {
-  const { isAdmin, toggleRole, user } = useAuth();
+  const { isAdmin, user } = useAuth();
   const links = isAdmin ? adminLinks : userLinks;
 
   return (
@@ -49,18 +46,6 @@ export default function Sidebar() {
 
       <Separator className="bg-slate-800" />
 
-      {/* Dev Role Toggle */}
-      <div className="px-4 pt-4 pb-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={toggleRole}
-          className="w-full text-xs border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-        >
-          <ArrowLeftRight className="h-3 w-3 mr-2" />
-          Viewing as: {isAdmin ? 'Admin' : 'Student'}
-        </Button>
-      </div>
 
       {/* Role badge */}
       <div className="px-4 pb-3">
