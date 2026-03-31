@@ -2,7 +2,6 @@
 
 An open-source, full-stack financial management platform designed exclusively for university batches, clubs, and student organizations. The system streamlines the process of collecting dues, tracking expenses, and maintaining a transparent master ledger for all students and administrators.
 
-![BatchFund Banner](https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=1200&h=400)
 
 ## ✨ Features
 
