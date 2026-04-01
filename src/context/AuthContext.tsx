@@ -1,65 +1,101 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { AuthState, AuthUser, Profile } from '@/lib/types';
 
 const AuthContext = createContext<AuthState | null>(null);
 
+const SESSION_TIMEOUT_MS = 6000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, name: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${name} timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
+async function fetchProfile(userId: string, email: string): Promise<AuthUser | null> {
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error || !profile) return null;
+  return { id: userId, email, profile: profile as Profile };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const currentUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // Avoid firing redundant stuff when we already have the session mapped
+    const hydrateFromSession = async (
+      session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']
+    ) => {
       if (!session) {
-        if (mounted) {
-          setUser(null);
-          currentUserId.current = null;
-          setIsLoading(false);
-        }
+        if (!cancelled) setUser(null);
         return;
       }
 
-      // If user isn't fully loaded or ID mismatched, fetch profile
-      if (!currentUserId.current || currentUserId.current !== session.user.id) {
-        if (mounted) setIsLoading(true);
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (mounted) {
-            if (profile) {
-              setUser({
-                id: session.user.id,
-                email: session.user.email ?? '',
-                profile: profile as Profile,
-              });
-            } else {
-              setUser(null);
-            }
-            // Always set currentUserId.current or we'll trigger another fetch on the next event
-            currentUserId.current = session.user.id;
-          }
-        } catch (err) {
-          console.error("Auth state change error:", err);
-          if (mounted) {
-            setUser(null);
-            currentUserId.current = session.user.id; // Prevent looping on error
-          }
-        } finally {
-          if (mounted) setIsLoading(false);
+      try {
+        const authUser = await withTimeout(
+          fetchProfile(session.user.id, session.user.email ?? ''),
+          SESSION_TIMEOUT_MS,
+          'fetchProfile'
+        );
+        if (!cancelled) setUser(authUser);
+      } catch (err) {
+        console.warn('Auth profile hydration failed:', err);
+        if (!cancelled) setUser(null);
+      }
+    };
+
+    const init = async () => {
+      try {
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          SESSION_TIMEOUT_MS,
+          'supabase.auth.getSession'
+        );
+        await hydrateFromSession(session);
+      } catch (err) {
+        console.error('Auth init error:', err);
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
         }
+      }
+    };
+
+    void init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        setIsLoading(true);
+        // Avoid awaiting directly in auth callback to prevent re-entrancy issues.
+        void (async () => {
+          await hydrateFromSession(session);
+          if (!cancelled) setIsLoading(false);
+        })();
       }
     });
 
     return () => {
-      mounted = false;
+      cancelled = true;
       subscription.unsubscribe();
     };
   }, []);
@@ -67,19 +103,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setIsLoading(false);
-    
     if (error) {
-      console.error('Login error:', error.message);
-      return false; // Could throw to show toast in page, but sticking to boolean for now
+      setIsLoading(false);
+      return false;
     }
     return true;
   }, []);
 
   const logout = useCallback(async () => {
-    setIsLoading(true);
     await supabase.auth.signOut();
-    // authStateChange will catch this and set user to null
   }, []);
 
   const value: AuthState = {
@@ -89,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     login,
     logout,
-    toggleRole: () => { console.warn("toggleRole is disabled since auth is now live via Supabase"); },
+    toggleRole: () => { console.warn("toggleRole is disabled"); },
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
