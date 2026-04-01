@@ -44,7 +44,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/30 mb-4">
             <HandCoins className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">BatchFund</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">BatchFund 21/22</h1>
           <p className="text-slate-400 mt-1">University Batch Fund Portal</p>
         </div>
 
@@ -106,7 +106,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-slate-500 mt-6">
-          © 2026 BatchFund · EXTRU Batch 21/22
+          © 2026 BatchFund 21/22
         </p>
       </div>
     </div>
