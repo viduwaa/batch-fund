@@ -3,7 +3,6 @@ import { useAuth } from '@/context/AuthContext';
 import {
   LayoutDashboard,
   Receipt,
-  HandCoins,
   BookOpen,
   FolderKanban,
   Shield,
@@ -34,9 +33,7 @@ export default function Sidebar() {
       {/* Logo / Brand */}
       <div className="p-6 pb-4">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-blue-600 flex items-center justify-center">
-            <HandCoins className="h-5 w-5 text-white" />
-          </div>
+          <img src="/favicon.png" alt="BatchFund logo" className="h-9 w-9 rounded-lg object-cover" />
           <div>
             <h1 className="text-lg font-bold tracking-tight">BatchFund</h1>
             <p className="text-[11px] text-slate-400 -mt-0.5">University Portal</p>

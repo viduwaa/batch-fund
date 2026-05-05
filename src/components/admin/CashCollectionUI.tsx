@@ -21,16 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import StatusBadge from '@/components/shared/StatusBadge';
-import { Check, Clock, AlertTriangle, Search } from 'lucide-react';
+import { Check, Clock, AlertTriangle, Search, Pencil, X, RotateCcw } from 'lucide-react';
 
 interface CashCollectionUIProps {
   collection: any; // Using stats collection
@@ -56,12 +48,19 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
   const contributions = rawContributions || [];
 
   const paymentMutation = useMutation({
-    mutationFn: (variables: { id: string, amount: number, status: string }) => 
-      recordPayment(variables.id, variables.amount, variables.status, user?.id ?? ''),
+    mutationFn: (variables: { id: string; amount: number; status: string; confirmedBy: string | null }) => 
+      recordPayment(variables.id, variables.amount, variables.status, variables.confirmedBy),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contributions', collection.id] });
       queryClient.invalidateQueries({ queryKey: ['collectionsStats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+    },
+    onSettled: (_data, _error, variables) => {
+      if (variables?.id) {
+        setPendingId((current) => (current === variables.id ? null : current));
+      } else {
+        setPendingId(null);
+      }
     }
   });
 
@@ -70,9 +69,9 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
     setVisibleCount(50);
   }, [searchQuery, deptFilter, statusFilter]);
 
-  // Dialog State
-  const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; maxAmount: number, currentPaid: number } | null>(null);
-  const [payInput, setPayInput] = useState<string>('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState<string>('');
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   const filteredContributions = useMemo(() => {
     return contributions.filter((c) => {
@@ -96,32 +95,59 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
   }, [contributions, searchQuery, deptFilter, statusFilter]);
 
   const percentage = stats.total_users > 0 ? Math.round((stats.paid_count / stats.total_users) * 100) : 0;
+  const totalCollected = useMemo(
+    () => contributions.reduce((sum, c) => sum + (c.paid_amount || 0), 0),
+    [contributions]
+  );
 
-  const handleOpenDialog = (contribution: ContributionWithUser) => {
-    const currentPaid = contribution.paid_amount || 0;
-    setSelectedItem({
+  const handleCollectFull = (contribution: ContributionWithUser) => {
+    const target = contribution.amount || 0;
+    if (target <= 0) return;
+    setPendingId(contribution.id);
+    paymentMutation.mutate({
       id: contribution.id,
-      name: contribution.user?.full_name || 'Unknown',
-      maxAmount: contribution.amount,
-      currentPaid: currentPaid,
+      amount: target,
+      status: 'paid',
+      confirmedBy: user?.id ?? null,
     });
-    // Default to unpaid balance
-    setPayInput((contribution.amount - currentPaid).toString());
   };
 
-  const handleConfirmPayment = () => {
-    if (!selectedItem) return;
-    const addAmount = Number(payInput) || 0;
-    const newPaidAmount = selectedItem.currentPaid + addAmount;
-    
-    // Determine status
+  const startEdit = (contribution: ContributionWithUser) => {
+    setEditingId(contribution.id);
+    setEditAmount(String(contribution.paid_amount ?? 0));
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditAmount('');
+  };
+
+  const saveEdit = (contribution: ContributionWithUser) => {
+    const target = contribution.amount || 0;
+    const newPaid = Math.max(0, Number(editAmount) || 0);
     let newStatus = 'pending';
-    if (newPaidAmount >= selectedItem.maxAmount) newStatus = 'paid';
-    else if (newPaidAmount > 0) newStatus = 'partial';
-    
-    paymentMutation.mutate({ id: selectedItem.id, amount: newPaidAmount, status: newStatus });
-    
-    setSelectedItem(null);
+    if (newPaid >= target && target > 0) newStatus = 'paid';
+    else if (newPaid > 0) newStatus = 'partial';
+
+    setPendingId(contribution.id);
+    paymentMutation.mutate({
+      id: contribution.id,
+      amount: newPaid,
+      status: newStatus,
+      confirmedBy: newStatus === 'pending' ? null : (user?.id ?? null),
+    });
+    cancelEdit();
+  };
+
+  const resetPayment = (contribution: ContributionWithUser) => {
+    setPendingId(contribution.id);
+    paymentMutation.mutate({
+      id: contribution.id,
+      amount: 0,
+      status: 'pending',
+      confirmedBy: null,
+    });
+    cancelEdit();
   };
 
   return (
@@ -138,13 +164,13 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
             <div className="bg-slate-50 rounded-lg p-3">
               <p className="text-2xl font-bold font-mono text-slate-800">{stats.total_users}</p>
               <p className="text-xs text-slate-500">Total Members</p>
             </div>
             <div className="bg-emerald-50 rounded-lg p-3">
-              <p className="text-2xl font-bold font-mono text-emerald-600">Rs. {((stats.paid_count || 0) * stats.amount_per_person).toLocaleString()}</p>
+              <p className="text-2xl font-bold font-mono text-emerald-600">Rs. {totalCollected.toLocaleString()}</p>
               <p className="text-xs text-emerald-600">Collected</p>
             </div>
             <div className="bg-blue-50 rounded-lg p-3">
@@ -227,9 +253,9 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
               <TableHeader>
                 <TableRow className="bg-slate-50">
                   <TableHead className="font-semibold px-4">Student</TableHead>
-                  <TableHead className="font-semibold hidden sm:table-cell">ID / Dept</TableHead>
+                  <TableHead className="font-semibold hidden md:table-cell">ID / Dept</TableHead>
                   <TableHead className="font-semibold text-right hidden md:table-cell">Progress</TableHead>
-                  <TableHead className="font-semibold text-center w-[100px] sm:w-[120px]">Status</TableHead>
+                  <TableHead className="font-semibold text-center hidden md:table-cell w-[120px]">Status</TableHead>
                   <TableHead className="font-semibold text-right pr-6">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -247,10 +273,22 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
                   else if (paid > 0) effectiveStatus = 'partial';
                   else if (contribution.status === 'paid') effectiveStatus = 'pending'; // In case locally we resetted it somehow 
 
-                  const progressPct = Math.round((paid / target) * 100);
+                  const progressPct = target > 0 ? Math.min(100, Math.round((paid / target) * 100)) : 0;
 
                   return (
-                    <TableRow key={contribution.id} className="hover:bg-slate-50/50">
+                    <TableRow
+                      key={contribution.id}
+                      className={`cursor-pointer transition-colors ${
+                        pendingId === contribution.id
+                          ? 'bg-blue-50'
+                          : 'hover:bg-slate-50 active:bg-blue-50'
+                      }`}
+                      onClick={() => {
+                        if (effectiveStatus !== 'paid' && editingId !== contribution.id) {
+                          handleCollectFull(contribution);
+                        }
+                      }}
+                    >
                       <TableCell className="px-4">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-slate-100 flex shadow-sm items-center justify-center text-xs font-bold text-slate-500 shrink-0">
@@ -262,7 +300,7 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell">
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex flex-col font-mono text-xs">
                           <span className="text-slate-600">{contribution.user?.student_id || 'N/A'}</span>
                           <span className="text-slate-400 mt-0.5">{contribution.user?.department || 'N/A'}</span>
@@ -281,24 +319,71 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center hidden md:table-cell">
                         <StatusBadge status={effectiveStatus} />
                       </TableCell>
                       <TableCell className="text-right pr-6">
-                        {effectiveStatus === 'paid' ? (
-                          <span className="flex items-center justify-end gap-1.5 text-[11px] font-medium text-emerald-600 uppercase tracking-wider">
-                            <Check className="h-3.5 w-3.5" />
-                            Completed
-                          </span>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenDialog(contribution)}
-                            className={`${effectiveStatus === 'partial' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-800 hover:bg-slate-700'} text-xs h-8 shadow-sm`}
-                          >
-                            Collect Cash
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {editingId === contribution.id ? (
+                            <>
+                              <Input
+                                value={editAmount}
+                                onChange={(e) => setEditAmount(e.target.value)}
+                                type="number"
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-8 w-24 text-xs font-mono"
+                              />
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); saveEdit(contribution); }}
+                                className="h-8 w-8"
+                                disabled={pendingId === contribution.id}
+                              >
+                                <Check className="h-4 w-4 text-emerald-600" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); cancelEdit(); }}
+                                className="h-8 w-8"
+                              >
+                                <X className="h-4 w-4 text-slate-500" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); resetPayment(contribution); }}
+                                className="h-8 w-8"
+                                disabled={pendingId === contribution.id}
+                              >
+                                <RotateCcw className="h-4 w-4 text-amber-600" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              {pendingId === contribution.id ? (
+                                <span className="text-xs text-blue-600">Collecting...</span>
+                              ) : effectiveStatus === 'paid' ? (
+                                <span className="flex items-center justify-end gap-1.5 text-[11px] font-medium text-emerald-600 uppercase tracking-wider">
+                                  <Check className="h-3.5 w-3.5" />
+                                  Completed
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-500">Tap row to collect</span>
+                              )}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => { e.stopPropagation(); startEdit(contribution); }}
+                                className="h-8 w-8"
+                                disabled={pendingId === contribution.id}
+                              >
+                                <Pencil className="h-4 w-4 text-slate-600" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -327,38 +412,6 @@ export default function CashCollectionUI({ collection }: CashCollectionUIProps) 
           )}
         </CardContent>
       </Card>
-
-      {/* Partial Payment Dialog */}
-      <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Collect Cash from {selectedItem?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="py-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="amount" className="text-slate-600">Cash Received (Rs.)</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={payInput}
-                onChange={(e) => setPayInput(e.target.value)}
-                placeholder="0"
-                className="text-lg font-mono placeholder:text-slate-300"
-              />
-            </div>
-            <p className="text-xs text-slate-500">
-              Total expected: <span className="font-mono font-medium text-slate-700">Rs. {selectedItem?.maxAmount.toLocaleString()}</span>. 
-              You can log a partial amount if they have not paid in full.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedItem(null)} disabled={paymentMutation.isPending}>Cancel</Button>
-            <Button onClick={handleConfirmPayment} className="bg-emerald-600 hover:bg-emerald-700" disabled={paymentMutation.isPending}>
-              {paymentMutation.isPending ? 'Confirming...' : 'Confirm Payment'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pl-1">
