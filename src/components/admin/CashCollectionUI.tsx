@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import StatusBadge from '@/components/shared/StatusBadge';
-import { Check, Clock, AlertTriangle, Search, Pencil, X, RotateCcw, Users, Plus } from 'lucide-react';
+import { Check, Clock, AlertTriangle, Search, Pencil, X, RotateCcw, Plus } from 'lucide-react';
 
 interface CashCollectionUIProps {
   collection: any; // Using stats collection

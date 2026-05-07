@@ -14,8 +14,6 @@ const AuthContext = createContext<AuthState | null>(null);
 
 const SESSION_TIMEOUT_MS = 6000;
 
-let isInitialAuth = true;
-
 async function withTimeout<T>(
     promise: Promise<T>,
     timeoutMs: number,

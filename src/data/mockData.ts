@@ -245,6 +245,7 @@ export function getContributionsForUser(userId: string): ContributionWithCollect
         ...c,
         collection: {
           title: collection?.title ?? 'Unknown Collection',
+          description: collection?.description ?? '',
           amount_per_person: collection?.amount_per_person ?? 0,
           due_date: collection?.due_date ?? '',
         },
@@ -574,5 +575,4 @@ export function generateCollectionReportExport(collectionId: string): string {
 
   return html;
 }
-
 
