@@ -4,6 +4,7 @@ import {
     useState,
     useEffect,
     useCallback,
+    useRef,
     type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabase";
@@ -12,6 +13,8 @@ import type { AuthState, AuthUser, Profile } from "@/lib/types";
 const AuthContext = createContext<AuthState | null>(null);
 
 const SESSION_TIMEOUT_MS = 6000;
+
+let isInitialAuth = true;
 
 async function withTimeout<T>(
     promise: Promise<T>,
@@ -49,6 +52,12 @@ async function fetchProfile(
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const hasInitialized = useRef(false);
+    const userRef = useRef<AuthUser | null>(null);
+
+    useEffect(() => {
+        userRef.current = user;
+    }, [user]);
 
     useEffect(() => {
         let cancelled = false;
@@ -91,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (!cancelled) setUser(null);
             } finally {
                 if (!cancelled) {
+                    hasInitialized.current = true;
                     setIsLoading(false);
                 }
             }
@@ -103,23 +113,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } = supabase.auth.onAuthStateChange((event, session) => {
             if (cancelled) return;
 
-            if (event === "SIGNED_OUT") {
-                setUser(null);
-                setIsLoading(false);
-                return;
-            }
+        if (event === "SIGNED_OUT") {
+            setUser(null);
+            setIsLoading(false);
+            return;
+        }
 
-            if (
-                event === "SIGNED_IN" ||
-                event === "INITIAL_SESSION" ||
-                event === "TOKEN_REFRESHED" ||
-                event === "USER_UPDATED"
-            ) {
-                setIsLoading(true);
-                // Avoid awaiting directly in auth callback to prevent re-entrancy issues.
+            if (event === "SIGNED_IN") {
+                if (!userRef.current) {
+                    setIsLoading(true);
+                }
                 void (async () => {
                     await hydrateFromSession(session);
                     if (!cancelled) setIsLoading(false);
+                })();
+                return;
+            }
+
+            if (event === "INITIAL_SESSION" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+                void (async () => {
+                    await hydrateFromSession(session);
+                    if (!cancelled && !hasInitialized.current) {
+                        setIsLoading(false);
+                        hasInitialized.current = true;
+                    }
                 })();
             }
         });

@@ -35,6 +35,21 @@ export async function createCollection(payload: CollectionInsert): Promise<Colle
   return data;
 }
 
+export async function createAdhocCollection(payload: CollectionInsert): Promise<CollectionRow> {
+  const { data, error } = await supabase
+    .from('collections')
+    .insert({
+      ...payload,
+      collection_type: 'adhoc',
+      amount_per_person: payload.amount_per_person || 0,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function updateCollectionStatus(id: string, status: 'active' | 'closed' | 'cancelled'): Promise<CollectionRow> {
   const { data, error } = await supabase
     .from('collections')

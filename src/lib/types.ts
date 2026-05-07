@@ -17,6 +17,7 @@ export interface Collection {
   title: string;
   description: string;
   amount_per_person: number;
+  collection_type?: 'standard' | 'adhoc';
   status: 'active' | 'closed' | 'cancelled';
   created_by: string;
   due_date: string;
@@ -53,7 +54,7 @@ export interface ContributionWithUser extends Contribution {
 }
 
 export interface ContributionWithCollection extends Contribution {
-  collection: Pick<Collection, 'title' | 'amount_per_person' | 'due_date'>;
+  collection: Pick<Collection, 'title' | 'description' | 'amount_per_person' | 'due_date'>;
 }
 
 export interface LedgerEntry {

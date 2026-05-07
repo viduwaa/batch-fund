@@ -28,6 +28,7 @@ export default function EditCollectionDialog({ collection, open, onOpenChange }:
     description: '',
     amount: '',
     dueDate: '',
+    type: 'standard',
   });
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function EditCollectionDialog({ collection, open, onOpenChange }:
         amount: collection.amount_per_person?.toString() || '',
         // The due_date arrives as YYYY-MM-DDTHH:mm:ss.sssZ, HTML input needs YYYY-MM-DD
         dueDate: collection.due_date ? collection.due_date.split('T')[0] : '',
+        type: collection.collection_type || 'standard',
       });
     }
   }, [collection, open]);
@@ -49,6 +51,7 @@ export default function EditCollectionDialog({ collection, open, onOpenChange }:
         description: data.description,
         amount_per_person: Number(data.amount),
         due_date: data.dueDate,
+        collection_type: data.type,
       });
     },
     onSuccess: () => {
@@ -124,7 +127,8 @@ export default function EditCollectionDialog({ collection, open, onOpenChange }:
                 min="1" 
                 value={formData.amount}
                 onChange={(e) => setFormData(f => ({ ...f, amount: e.target.value }))}
-                required 
+                required={formData.type === 'standard'}
+                disabled={formData.type === 'adhoc'}
               />
             </div>
             <div className="space-y-2">
@@ -137,6 +141,30 @@ export default function EditCollectionDialog({ collection, open, onOpenChange }:
                 required 
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Collection Type</Label>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant={formData.type === 'standard' ? 'default' : 'outline'}
+                className={formData.type === 'standard' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                onClick={() => setFormData((f) => ({ ...f, type: 'standard', amount: f.amount || '0' }))}
+              >
+                Standard (everyone)
+              </Button>
+              <Button
+                type="button"
+                variant={formData.type === 'adhoc' ? 'default' : 'outline'}
+                className={formData.type === 'adhoc' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                onClick={() => setFormData((f) => ({ ...f, type: 'adhoc', amount: '0' }))}
+              >
+                Ad-hoc (specific)
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Ad-hoc collections skip the full member list and allow recording custom payments from selected people.
+            </p>
           </div>
 
           <DialogFooter className="pt-4 flex justify-between! w-full">

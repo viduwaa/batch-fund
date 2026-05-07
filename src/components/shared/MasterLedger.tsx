@@ -51,12 +51,31 @@ export default function MasterLedger() {
   const entries = useMemo(() => entriesResponse || [], [entriesResponse]);
 
   const filteredEntries = useMemo(() => {
+    const normalizeValue = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const isSubsequence = (needle: string, haystack: string) => {
+      if (!needle) return true;
+      let i = 0;
+      for (let j = 0; j < haystack.length && i < needle.length; j += 1) {
+        if (needle[i] === haystack[j]) i += 1;
+      }
+      return i === needle.length;
+    };
+
+    const q = normalizeValue(searchQuery);
     return entries.filter((e) => {
       const matchType = typeFilter === 'all' || e.type === typeFilter;
-      const matchSearch = e.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (e.reference_name && e.reference_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (e.student_id && e.student_id.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (e.department && e.department.toLowerCase().includes(searchQuery.toLowerCase()));
+      const description = normalizeValue(e.description || '');
+      const referenceName = normalizeValue(e.reference_name || '');
+      const studentId = normalizeValue(e.student_id || '');
+      const department = normalizeValue(e.department || '');
+
+      const matchSearch = !q ||
+        description.includes(q) ||
+        referenceName.includes(q) ||
+        studentId.includes(q) ||
+        department.includes(q) ||
+        isSubsequence(q, studentId) ||
+        isSubsequence(q, referenceName);
       const matchReason = reasonFilter === 'All' || e.collection_id === reasonFilter;
       const matchDept = deptFilter === 'All' || e.department === deptFilter || !e.department; // expenses usually don't have dept
 
@@ -67,6 +86,12 @@ export default function MasterLedger() {
       return matchType && matchSearch && matchReason && matchDept && matchDateFrom && matchDateTo;
     });
   }, [entries, typeFilter, searchQuery, reasonFilter, deptFilter, dateFrom, dateTo]);
+
+  const selectedReasonLabel = useMemo(() => {
+    if (reasonFilter === 'All') return 'All Reasons';
+    const match = mockCollections?.find((c) => c.id === reasonFilter);
+    return match?.title || 'All Reasons';
+  }, [reasonFilter, mockCollections]);
 
   const totalIncome = filteredEntries
     .filter((e) => e.type === 'income')
@@ -123,7 +148,7 @@ export default function MasterLedger() {
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Filter by Reason</label>
             <Select value={reasonFilter} onValueChange={(v) => v && setReasonFilter(v)}>
               <SelectTrigger className="w-full bg-slate-50 border-slate-200">
-                <SelectValue placeholder="Reason" />
+                <span className="truncate text-sm text-slate-700">{selectedReasonLabel}</span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All Reasons</SelectItem>

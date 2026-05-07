@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { createCollection } from '@/services/collections.service';
+import { createCollection, createAdhocCollection } from '@/services/collections.service';
 import { useAuth } from '@/context/AuthContext';
 import {
   Dialog,
@@ -29,24 +29,28 @@ export default function CreateCollectionDialog({ open, onOpenChange }: CreateCol
     description: '',
     amount: '',
     dueDate: '',
+    type: 'standard',
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      return createCollection({
+      const payload = {
         title: data.title,
         description: data.description,
-        amount_per_person: Number(data.amount),
+        amount_per_person: Number(data.amount || 0),
         due_date: data.dueDate,
         created_by: user?.id,
-        status: 'active'
-      });
+        status: 'active' as const,
+      };
+      return data.type === 'adhoc'
+        ? createAdhocCollection(payload)
+        : createCollection(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collectionsStats'] });
       queryClient.invalidateQueries({ queryKey: ['collections'] });
       onOpenChange(false);
-      setFormData({ title: '', description: '', amount: '', dueDate: '' });
+      setFormData({ title: '', description: '', amount: '', dueDate: '', type: 'standard' });
     }
   });
 
@@ -97,7 +101,8 @@ export default function CreateCollectionDialog({ open, onOpenChange }: CreateCol
                 min="1" 
                 value={formData.amount}
                 onChange={(e) => setFormData(f => ({ ...f, amount: e.target.value }))}
-                required 
+                required={formData.type === 'standard'}
+                disabled={formData.type === 'adhoc'}
               />
             </div>
             <div className="space-y-2">
@@ -110,6 +115,30 @@ export default function CreateCollectionDialog({ open, onOpenChange }: CreateCol
                 required 
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Collection Type</Label>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant={formData.type === 'standard' ? 'default' : 'outline'}
+                className={formData.type === 'standard' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                onClick={() => setFormData((f) => ({ ...f, type: 'standard', amount: f.amount || '0' }))}
+              >
+                Standard (everyone)
+              </Button>
+              <Button
+                type="button"
+                variant={formData.type === 'adhoc' ? 'default' : 'outline'}
+                className={formData.type === 'adhoc' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                onClick={() => setFormData((f) => ({ ...f, type: 'adhoc', amount: '0' }))}
+              >
+                Ad-hoc (specific)
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Ad-hoc collections skip the full member list and allow recording custom payments from selected people.
+            </p>
           </div>
 
           <DialogFooter className="pt-4">

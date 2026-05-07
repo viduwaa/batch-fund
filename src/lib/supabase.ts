@@ -41,6 +41,7 @@ export interface Database {
           title: string;
           description: string;
           amount_per_person: number;
+          collection_type?: 'standard' | 'adhoc' | null;
           status: 'active' | 'closed' | 'cancelled';
           created_by: string | null;
           due_date: string;
@@ -51,6 +52,7 @@ export interface Database {
           title: string;
           description: string;
           amount_per_person: number;
+          collection_type?: 'standard' | 'adhoc' | null;
           status?: 'active' | 'closed' | 'cancelled';
           created_by?: string | null;
           due_date: string;
@@ -83,6 +85,28 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['contributions']['Insert']>;
+        Relationships: any[];
+      };
+      adhoc_payments: {
+        Row: {
+          id: string;
+          collection_id: string;
+          user_id: string;
+          amount: number;
+          confirmed_by: string | null;
+          confirmed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          collection_id: string;
+          user_id: string;
+          amount: number;
+          confirmed_by?: string | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['adhoc_payments']['Insert']>;
         Relationships: any[];
       };
       expenses: {

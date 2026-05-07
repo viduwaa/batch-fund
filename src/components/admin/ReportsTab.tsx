@@ -76,9 +76,9 @@ export default function ReportsTab() {
       <div className="space-y-6">
         {colsLoading && <div className="text-center py-12 text-slate-500">Loading reports data...</div>}
         {collections?.map((col: any) => {
-          // stats mapped from our RPC query alias
-          const totalExpected = col.total_users * col.amount_per_person;
-          const amountCollected = col.paid_count * col.amount_per_person;
+          const isAdhoc = col.collection_type === 'adhoc';
+          const totalExpected = isAdhoc ? col.total_expected || 0 : col.total_users * col.amount_per_person;
+          const amountCollected = isAdhoc ? col.amount_collected || 0 : col.paid_count * col.amount_per_person;
           
           const colExpenses = (expenses || []).filter((e: any) => e.collection_id === col.id);
           const totalSpent = colExpenses.reduce((sum: number, e: any) => sum + e.amount, 0);

@@ -21,6 +21,7 @@ const adminLinks = [
 
 const userLinks = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/collections', label: 'Collections', icon: FolderKanban },
   { to: '/ledger', label: 'Master Ledger', icon: BookOpen },
 ];
 
